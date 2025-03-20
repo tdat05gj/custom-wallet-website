@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        input {
+            padding: 10px;
+            margin: 10px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .generate-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .generate-btn:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        .stop-btn {
+            background-color: #f44336;
+            color: white;
+            display: none;
+        }
+        .stop-btn:hover {
+            background-color: #d32f2f;
+            transform: translateY(-2px);
+        }
+        .new-btn {
+            background-color: #2196F3;
+            color: white;
+            display: none;
+        }
+        .new-btn:hover {
+            background-color: #1976D2;
+            transform: translateY(-2px);
+        }
+        #result {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #666;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .copy-btn:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wallet Generator</h1>
+        <label for="ending">Desired Address Ending:</label>
+        <input type="text" id="ending" placeholder="e.g., 666666">
+        <br>
+        <button class="btn generate-btn" onclick="generateWallet()">Generate Wallet</button>
+        <button class="btn stop-btn" onclick="stopGeneration()">Stop</button>
+        <button class="btn new-btn" onclick="resetForm()">Generate New</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let abortController = null;
+
+        async function generateWallet() {
+            const ending = document.getElementById('ending').value.trim();
+            if (!ending) {
+                alert('Please enter a desired ending');
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Generating wallet... This may take a while...';
+            
+            document.querySelector('.generate-btn').style.display = 'none';
+            document.querySelector('.stop-btn').style.display = 'inline-block';
+            document.querySelector('.new-btn').style.display = 'none';
+
+            abortController = new AbortController();
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ending: ending }),
+                    signal: abortController.signal
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    resultDiv.innerHTML = 
+                        `Address: ${data.address}\nPrivate Key: ${data.privateKey}\nSeed Phrase: ${data.mnemonic}` +
+                        '<button class="copy-btn" onclick="copyResult()">Copy</button>';
+                    document.querySelector('.new-btn').style.display = 'inline-block';
+                } else {
+                    resultDiv.innerHTML = 'Error: ' + (data.error || 'Failed to generate wallet');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    resultDiv.innerHTML = 'Generation stopped. You can modify the ending and try again.';
+                } else {
+                    resultDiv.innerHTML = 'Error: ' + error.message;
+                }
+            } finally {
+                document.querySelector('.generate-btn').style.display = 'inline-block';
+                document.querySelector('.stop-btn').style.display = 'none';
+            }
+        }
+
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
+        }
+
+        function copyResult() {
+            const resultText = document.getElementById('result').textContent.replace('Copy', '').trim();
+            navigator.clipboard.writeText(resultText);
+            alert('Copied to clipboard!');
+        }
+
+        function resetForm() {
+            document.getElementById('ending').value = '';
+            document.getElementById('result').innerHTML = '';
+            document.querySelector('.new-btn').style.display = 'none';
+            document.querySelector('.generate-btn').style.display = 'inline-block';
+            document.querySelector('.stop-btn').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
